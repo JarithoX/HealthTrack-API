@@ -1,17 +1,23 @@
  // Importa el SDK de Firebase Admin
 const admin = require('firebase-admin');
 
-// Importa tus credenciales (asegúrate de que esta ruta sea correcta)
-const serviceAccount = require('./serviceAccountKey.json'); 
+function initFirebase() {
+  // En producción (Cloud Run) usaremos credenciales por defecto.
+  // En local, si existe serviceAccountKey.json, usamos esa.
+  try {
+    const serviceAccount = require('./serviceAccountKey.json');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+    console.log('🔥 Firebase Admin inicializado (LOCAL con key JSON)');
+  } catch (e) {
+    admin.initializeApp({
+      credential: admin.credential.applicationDefault(),
+    });
+    console.log('🔥 Firebase Admin inicializado (CLOUD con credencial por defecto)');
+  }
+  return admin.firestore();
+}
 
-// Inicializa la aplicación de Firebase
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-// Exporta la instancia de Firestore para usarla en los controladores
-const db = admin.firestore();
-
-console.log('🔥 Conexión a Firestore inicializada.');
-
-module.exports = { db, admin };
+const db = initFirebase();
+module.exports = { db };
