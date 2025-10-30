@@ -1,8 +1,8 @@
-// Importa el SDK de Firebase Admin
+ // Importa el SDK de Firebase Admin
 const admin = require('firebase-admin');
 
 // Importa tus credenciales (asegúrate de que esta ruta sea correcta)
-const serviceAccount = require('../serviceAccountKey.json'); 
+const serviceAccount = require('./serviceAccountKey.json'); 
 
 // Inicializa la aplicación de Firebase
 admin.initializeApp({
@@ -14,4 +14,4 @@ const db = admin.firestore();
 
 console.log('🔥 Conexión a Firestore inicializada.');
 
-module.exports = { db };
+module.exports = { db, admin };
