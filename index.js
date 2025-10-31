@@ -9,9 +9,9 @@ app.use(cors({ origin: ['http://localhost:8000'], credentials: true }));
 app.use(express.json());
 
 // si quieres que sigan existiendo ambas rutas:
-app.use('/', usuariosRoutes);     // /usuarios
+app.use('/api', usuariosRoutes);     // /usuarios
 
 // ping opcional
 app.get('/', (_req, res) => res.status(200).send('API HealthTrack funcionando'));
 
-app.listen(PORT, () => console.log(`Server corriendo en http://localhost:${PORT}/usuarios`));
+app.listen(PORT, () => console.log(`Server corriendo en http://localhost:${PORT}/api/usuarios`));
