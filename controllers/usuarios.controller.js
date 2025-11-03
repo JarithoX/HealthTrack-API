@@ -237,11 +237,16 @@ async function loginUsuario(req, res) {
             return res.status(401).json({ error: 'Credenciales inválidas.' });
         }
 
+        // Creamos un objeto limpio para la respuesta (opcional, pero buena práctica)
+        const responseData = {
+            username: userData.username,
+            rol: userData.rol || 'user',      
+            activo: userData.activo || false,
+            email: userData.email,
+        };
+
         // 3. Éxito
-        return res.status(200).json({ 
-            message: 'Autenticación exitosa.', 
-            username: userData.username
-        });
+        return res.status(200).json(responseData);
 
     } catch (err) {
         console.error('Error en loginUsuario:', err);
