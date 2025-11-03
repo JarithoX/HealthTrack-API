@@ -13,7 +13,7 @@ app.use(express.json());
 
 
 // Rutas de la API
-app.use('/api', usuariosRoutes);
+app.use('/api/usuarios', usuariosRoutes);
 app.use('/api', habitosRoutes);
 
 // ping opcional

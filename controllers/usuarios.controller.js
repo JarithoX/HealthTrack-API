@@ -1,5 +1,3 @@
-// healthtrack-api/controllers/usuarios.controller.js (ACTUALIZADO)
-
 const { db, admin } = require('../config/firebase');
 const bcrypt = require('bcryptjs');
 
@@ -13,7 +11,7 @@ const pickUsuarioFields = (body) => ({
     apellido: (body.apellido || '').trim(),
     email: (body.email || '').trim().toLowerCase(),
     username: (body.username || '').trim(),
-    activo: (body.activo !== undefined ? body.activo : false),
+    activo: (body.activo !== undefined ? body.activo : undefined),
     
     // Campos opcionales/numéricos/de formato específico:
     edad: body.edad ? parseInt(body.edad) : null, // Convertir a número entero
@@ -89,7 +87,7 @@ async function createUsuario(req, res) {
             ...base,
             password_hash,
             rol: role, // Guarda el campo 'rol' (tal como está en Firestore)
-            activo: true,
+            activo: false,
             fecha_registro: now, // Usando el nombre del campo de Firestore
             updatedAt: now,
         });
@@ -110,55 +108,6 @@ async function getUsuarios(_req, res) {
     } catch (err) {
         console.error('getUsuarios:', err);
         return res.status(500).json({ error: 'Error al listar usuarios.' });
-    }
-}
-
-// GET /api/usuarios/:id (Obtener por ID)
-async function getUsuarioById(req, res) {
-    try {
-        const { id } = req.params;
-        const doc = await db.collection(COLL).doc(id).get();
-        if (!doc.exists) return res.status(404).json({ error: 'Usuario no encontrado.' });
-        return res.status(200).json(toPublic(doc));
-    } catch (err) {
-        console.error('getUsuarioById:', err);
-        return res.status(500).json({ error: 'Error al obtener usuario.' });
-    }
-}
-
-// PUT/PATCH /api/usuarios/:id (Actualizar)
-async function updateUsuario(req, res) {
-    try {
-        const { id } = req.params;
-        const ref = db.collection(COLL).doc(id);
-        const snap = await ref.get();
-        if (!snap.exists) return res.status(404).json({ error: 'Usuario no encontrado.' });
-
-        const incoming = pickUsuarioFields(req.body || {});
-        const toUpdate = {};
-        // Solo copiar campos no vacíos, nulos o inválidos
-        for (const [k, v] of Object.entries(incoming)) {
-            // Aseguramos que los valores como 0 o null (si vienen de parseInt/parseFloat) sean válidos para actualizar
-            if (v !== '' && v !== null && v !== undefined) toUpdate[k] = v;
-        }
-
-        // Unicidad si cambian email/username
-        if (toUpdate.email) await ensureUniqueEmail(toUpdate.email, id);
-        if (toUpdate.username) await ensureUniqueUsername(toUpdate.username, id);
-
-        // Si viene password, re-hash
-        if (req.body?.password) {
-            toUpdate.password_hash = await bcrypt.hash(req.body.password, 10);
-        }
-
-        toUpdate.updatedAt = admin.firestore.FieldValue.serverTimestamp();
-
-        await ref.update(toUpdate);
-        const updated = await ref.get();
-        return res.status(200).json(toPublic(updated));
-    } catch (err) {
-        console.error('updateUsuario:', err);
-        return res.status(err.status || 500).json({ error: err.message || 'Error al actualizar usuario.' });
     }
 }
 
@@ -265,13 +214,46 @@ async function getUsuarioByUsername(req, res) {
     }
 }
 
+async function loginUsuario(req, res) {
+    try {
+        const { username, password } = req.body;
+
+        // 1. Busca el usuario por username
+        const usuariosRef = db.collection(COLL);
+        const snapshot = await usuariosRef.where('username', '==', username).limit(1).get();
+
+        if (snapshot.empty) {
+            // Evita revelar si el usuario existe o no por seguridad
+            return res.status(401).json({ error: 'Credenciales inválidas.' });
+        }
+
+        const userData = snapshot.docs[0].data();
+        const passwordHash = userData.password_hash;
+
+        // 2. 🚨 Compara la contraseña (la magia ocurre aquí)
+        const isMatch = await bcrypt.compare(password, passwordHash);
+
+        if (!isMatch) {
+            return res.status(401).json({ error: 'Credenciales inválidas.' });
+        }
+
+        // 3. Éxito
+        return res.status(200).json({ 
+            message: 'Autenticación exitosa.', 
+            username: userData.username
+        });
+
+    } catch (err) {
+        console.error('Error en loginUsuario:', err);
+        return res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+}
 
 module.exports = {
     createUsuario,
     getUsuarios,
-    getUsuarioById,
-    updateUsuario,
     deleteUsuario,
     updatePerfil,
     getUsuarioByUsername,
+    loginUsuario,
 };
