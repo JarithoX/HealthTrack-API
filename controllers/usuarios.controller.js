@@ -111,16 +111,28 @@ async function getUsuarios(_req, res) {
     }
 }
 
-// DELETE /api/usuarios/:id (Eliminar)
+// DELETE /api/usuarios/username/:username (Eliminar)
 async function deleteUsuario(req, res) {
     try {
-        const { id } = req.params;
-        const ref = db.collection(COLL).doc(id);
-        const snap = await ref.get();
-        if (!snap.exists) return res.status(404).json({ error: 'Usuario no encontrado.' });
+        const { username } = req.params;
+        const usuariosRef = db.collection(COLL);
+        const snapshot = await usuariosRef.where('username', '==', username).limit(1).get();
 
-        await ref.delete();
+        if (snapshot.empty) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+        // 3. Obtener la referencia del documento para eliminar
+        // Un snapshot de límite 1 siempre tiene solo un documento (o ninguno)
+        const docRef = snapshot.docs[0].ref;
+
+        // 4. Eliminar el documento encontrado
+        await docRef.delete();
+
+        // 5. Éxito (se recomienda 204 No Content para operaciones DELETE exitosas sin retorno)
+        //return res.status(204).send(); 
+        // Alternativamente, puedes devolver 200 con un mensaje JSON si lo prefieres:
         return res.status(200).json({ message: 'Usuario eliminado.' });
+
     } catch (err) {
         console.error('deleteUsuario:', err);
         return res.status(500).json({ error: 'Error al eliminar usuario.' });
@@ -129,53 +141,50 @@ async function deleteUsuario(req, res) {
 
 // Función adicional para completar el perfil del usuario
 async function updatePerfil(req, res) {
-    try {
-        const username = req.params.username; 
+try {
+        const { username } = req.params;
+        // El body puede contener: { rol, activo, nombre, peso, altura, email, etc. }
+        const dataToUpdate = req.body; 
 
-        const updates = {
-            peso: req.body?.peso ? parseFloat(req.body.peso) : null,
-            altura: req.body?.altura ? parseFloat(req.body.altura) : null,
-            genero: req.body?.genero || null,
-            edad: req.body?.edad ? parseInt(req.body.edad) : null,
-            condiciones_medicas: req.body?.condiciones_medicas || '',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
-
-        // 1. Buscar el ID del documento por el username
-        const usuariosRef = db.collection('usuario');
+        // 1. Buscar el usuario por username
+        const usuariosRef = db.collection(COLL);
         const snapshot = await usuariosRef.where('username', '==', username).limit(1).get();
 
         if (snapshot.empty) {
-            // Esto generaba tu error 404
-            return res.status(404).json({ error: 'Usuario no encontrado para actualizar el perfil.' });
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
         }
 
-        // 2. Obtener el ID de Firestore del documento encontrado
-        const docId = snapshot.docs[0].id; 
+        // 2. Obtener la referencia del documento
+        const docRef = snapshot.docs[0].ref;
 
-        // 3. Crear el objeto de actualización final (asegurando el tipo de dato y la marca de tiempo)
-        const finalUpdates = {
-            peso: parseFloat(updates.peso) || null,
-            altura: parseInt(updates.altura) || null,
-            genero: updates.genero || "",
-            edad: parseInt(updates.edad) || null,
-            condiciones_medicas: updates.condiciones_medicas || "",
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            activo: true,
+        // 3. Agregar el timestamp de actualización
+        // (Asegúrate de que 'admin1' no edite el password_hash sin querer)
+        const updatePayload = {
+            ...dataToUpdate,
+            updatedAt: new Date().toISOString()
         };
 
-        // 4. Actualizar el documento usando el ID de Firestore
-        await db.collection('usuario').doc(docId).update(finalUpdates);
+        // ⚠️ Prevenir la actualización de campos sensibles si no son manejados explícitamente ⚠️
+        // Por ejemplo, no permitir que se cambie el password_hash ni el username
+        if (updatePayload.password_hash) {
+            delete updatePayload.password_hash;
+        }
+        if (updatePayload.username) {
+            delete updatePayload.username;
+        }
 
-        return res.status(200).json({ message: 'Perfil completado con éxito.' });
 
+        // 4. Actualizar el documento en Firestore
+        // La función .update() fusiona los datos, manteniendo los campos no mencionados.
+        await docRef.update(updatePayload);
+
+        return res.status(200).json({ message: 'Perfil actualizado con éxito.', updatedFields: Object.keys(updatePayload) });
 
     } catch (err) {
         console.error('updatePerfil:', err);
-        return res.status(err.status || 500).json({ error: err.message || 'Error al completar el perfil.' });
+        return res.status(500).json({ error: 'Error interno del servidor al actualizar el perfil.' });
     }
 }
-
 // 🚨 NUEVA FUNCIÓN: Obtener usuario por Username
 async function getUsuarioByUsername(req, res) {
     try {
@@ -253,6 +262,8 @@ async function loginUsuario(req, res) {
         return res.status(500).json({ error: 'Error interno del servidor.' });
     }
 }
+
+
 
 module.exports = {
     createUsuario,
