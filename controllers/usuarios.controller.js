@@ -1,7 +1,14 @@
 const { db, admin } = require('../config/firebase');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 const COLL = 'usuario';
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+    // Si la aplicación se inicia sin el .env o sin la variable.
+    throw new Error('FATAL: JWT_SECRET no está definido en las variables de entorno. Por favor, configúralo en el archivo .env.');
+}
 
 // 1. Mapeo y saneamiento de campos (debe coincidir con Firestore)
 const pickUsuarioFields = (body) => ({
@@ -238,13 +245,26 @@ async function loginUsuario(req, res) {
 
         const userData = snapshot.docs[0].data();
         const passwordHash = userData.password_hash;
+        // Asignamos el ID del documento para el token
+        const userId = snapshot.docs[0].id; 
 
-        // 2. 🚨 Compara la contraseña (la magia ocurre aquí)
+        // 2. Compara la contraseña (la magia ocurre aquí)
         const isMatch = await bcrypt.compare(password, passwordHash);
 
         if (!isMatch) {
             return res.status(401).json({ error: 'Credenciales inválidas.' });
         }
+
+        // 🚨GENERACIÓN DEL TOKEN JWT 
+        const payload = {
+            uid: userId,               // ID de Firestore (para consultas futuras)
+            username: userData.username, // Username
+            rol: userData.rol || 'user', // Rol (para la autorización del middleware)
+        };
+
+        const token = jwt.sign(payload, JWT_SECRET, {
+            expiresIn: '24h', // Token válido por 24 horas
+        });        
 
         // Creamos un objeto limpio para la respuesta (opcional, pero buena práctica)
         const responseData = {
@@ -252,6 +272,8 @@ async function loginUsuario(req, res) {
             rol: userData.rol || 'user',      
             activo: userData.activo || false,
             email: userData.email,
+            token: token,
+            id: userId,
         };
 
         // 3. Éxito
