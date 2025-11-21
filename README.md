@@ -28,3 +28,8 @@ npm install
 ```powershell
 node index.js
 ```
+
+5. Crear .env y pegar lo siguiente
+```powershell
+JWT_SECRET=Yl3WqZzS/Jp5Vb8tH4xG2kDd9fR1aC7mE0oIuF6gT3hU2rN1qY0xC9vA8lB7kZ6yL5pX4rQ3oW2tV1sR0e
+```
