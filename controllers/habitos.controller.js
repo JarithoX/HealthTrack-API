@@ -128,34 +128,28 @@ async function registrarHabito(req, res) {
 async function listarRegistrosConDefinicion(req, res) {
     try {
         const username = req.params.username;
-        
-        // 1. Obtener todos los registros del usuario
+
+        // 1. Obtener todos los registros del usuario (SIN orderBy en Firestore)
         const registrosSnap = await db.collection(REG_COLL)
             .where('id_usuario', '==', username)
-            .orderBy('fecha', 'desc')
             .get();
 
         // 2. Mapear y "unir" (join) con la definición
-        // (Usamos Promise.all para manejar las consultas asíncronas de forma eficiente)
         const promesas = registrosSnap.docs.map(async (doc) => {
             const registro = doc.data();
-            
-            // 3. Obtener el documento de definición correspondiente
+
             const defDoc = await db.collection(DEF_COLL).doc(registro.id_habito_def).get();
-            
             if (!defDoc.exists) {
-                return null; // El hábito (ej. "Pasos") fue borrado pero el registro quedó
+                return null;
             }
-            
+
             const definicion = defDoc.data();
-            
-            // 4. Combinar los datos para Django
+
             return {
                 id_registro: doc.id,
                 fecha: registro.fecha.toDate ? registro.fecha.toDate().toISOString() : registro.fecha,
                 valor_registrado: registro.valor_registrado,
                 comentario: registro.comentario,
-                // Datos de la definición (para el gráfico)
                 nombre_habito: definicion.nombre,
                 meta: definicion.meta,
                 tipo_medicion: definicion.tipo_medicion,
@@ -163,7 +157,10 @@ async function listarRegistrosConDefinicion(req, res) {
         });
 
         const resultados = await Promise.all(promesas);
-        const registrosCompletos = resultados.filter(r => r !== null); // Limpiar nulos
+        let registrosCompletos = resultados.filter(r => r !== null);
+
+        // 3. Ordenar por fecha en Node (descendente)
+        registrosCompletos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
 
         return res.status(200).json(registrosCompletos);
 
@@ -172,6 +169,7 @@ async function listarRegistrosConDefinicion(req, res) {
         return res.status(500).json({ error: 'Error al obtener registros para el dashboard.' });
     }
 }
+
 
 module.exports = {
     crearDefinicion,
