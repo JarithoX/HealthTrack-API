@@ -52,9 +52,6 @@ async function deleteUsuario(req, res) {
 // Función adicional para completar el perfil del usuario
 async function updatePerfil(req, res) {
     try {
-        //eliminar en un futuro
-        console.log('DEBUG UPDATE BODY:', JSON.stringify(req.body, null, 2));
-        console.log('DEBUG UPDATE PARAMS:', req.params);
         
         const { username: uid } = req.params;
         const dataToUpdate = req.body;
@@ -100,7 +97,7 @@ async function updatePerfil(req, res) {
     }
 }
 
-// 🚨 NUEVA FUNCIÓN: Obtener usuario por Username
+// Obtener usuario por Username
 async function getUsuarioByUsername(req, res) {
     try {
         const username = req.params.username;
