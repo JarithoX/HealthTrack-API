@@ -5,7 +5,8 @@ const router = Router();
 
 router.get('/', ctrl.getUsuarios);
 router.delete('/username/:username', validarJWT, ctrl.deleteUsuario);
-router.put('/perfil/:username', validarJWT, ctrl.updatePerfil);
+router.put('/perfil/:username', ctrl.updatePerfil); // validarJWT eliminado
+router.put('/admin/update/:username',validarJWT, ctrl.updateUsuarioAdmin); // Nueva ruta admin
 router.get('/username/:username', ctrl.getUsuarioByUsername);
 
 module.exports = router;

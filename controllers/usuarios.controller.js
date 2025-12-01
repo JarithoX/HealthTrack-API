@@ -2,6 +2,7 @@ const { db, admin } = require('../config/firebase');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
+const UsuarioModel = require('../models/usuario.model');
 
 const COLL = 'usuario';
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -52,12 +53,19 @@ async function deleteUsuario(req, res) {
 // Función adicional para completar el perfil del usuario
 async function updatePerfil(req, res) {
     try {
-        
+
         const { username: uid } = req.params;
-        const dataToUpdate = req.body;
 
         if (!uid || typeof uid !== 'string' || uid.length < 20) {
             return res.status(400).json({ error: 'Falta un identificador de usuario (UID) válido.' });
+        }
+
+        // Validación de datos con el Modelo
+        let datosValidos;
+        try {
+            datosValidos = UsuarioModel.validarPerfilUpdate(req.body);
+        } catch (validationError) {
+            return res.status(400).json({ error: validationError.message });
         }
 
         const usuariosRef = db.collection(COLL);
@@ -73,19 +81,9 @@ async function updatePerfil(req, res) {
         const docRef = snapshot.docs[0].ref;
 
         const updatePayload = {
-            ...dataToUpdate,
+            ...datosValidos,
             updatedAt: new Date().toISOString()
         };
-
-        if (updatePayload.password_hash) {
-            delete updatePayload.password_hash;
-        }
-        if (updatePayload.username) {
-            delete updatePayload.username;
-        }
-        if (updatePayload.firebaseUid) {
-            delete updatePayload.firebaseUid;
-        }
 
         await docRef.update(updatePayload);
 
@@ -132,9 +130,54 @@ async function getUsuarioByUsername(req, res) {
     }
 }
 
+// Función para actualización administrativa (permite rol, activo, etc.)
+async function updateUsuarioAdmin(req, res) {
+    try {
+        // Nota: :username aquí se espera que sea el firebaseUid, igual que en updatePerfil
+        const { username: uid } = req.params;
+
+        if (!uid || typeof uid !== 'string') {
+            return res.status(400).json({ error: 'Identificador de usuario inválido.' });
+        }
+
+        // Validación con lógica de Admin
+        let datosValidos;
+        try {
+            datosValidos = UsuarioModel.validarAdminUpdate(req.body);
+            console.log('DEBUG: Datos validados:', datosValidos);
+        } catch (validationError) {
+            console.error('DEBUG: Error de validación:', validationError.message);
+            return res.status(400).json({ error: validationError.message });
+        }
+
+        const usuariosRef = db.collection(COLL);
+        const snapshot = await usuariosRef.where('firebaseUid', '==', uid).limit(1).get();
+
+        if (snapshot.empty) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        const docRef = snapshot.docs[0].ref;
+
+        const updatePayload = {
+            ...datosValidos,
+            updatedAt: new Date().toISOString()
+        };
+
+        await docRef.update(updatePayload);
+
+        return res.status(200).json({ message: 'Usuario actualizado por Admin.', updatedFields: Object.keys(updatePayload) });
+
+    } catch (err) {
+        console.error('updateUsuarioAdmin:', err);
+        return res.status(500).json({ error: 'Error interno al actualizar usuario (Admin).' });
+    }
+}
+
 module.exports = {
     getUsuarios,
     deleteUsuario,
     updatePerfil,
     getUsuarioByUsername,
+    updateUsuarioAdmin,
 };
