@@ -5,35 +5,57 @@ const validarJWT = async (req, res, next) => {
     
     const authHeader = req.headers['authorization'];
     
-    let token = '';
+let token = '';
 
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-    } else {
-        token = req.header('x-token');
+// 2. Extracción Robusta
+    if (authHeader) {
+        // Verificamos si empieza con 'bearer ' (ignorando mayúsculas/minúsculas)
+        if (authHeader.toLowerCase().startsWith('bearer ')) {
+            // Dividimos por el espacio y tomamos la segunda parte
+            const parts = authHeader.split(' ');
+            if (parts.length === 2) {
+                token = parts[1];
+            }
+        } else {
+            // Si no tiene prefijo Bearer, asumimos que es el token directo (raro, pero posible)
+            token = authHeader;
+        }
+    } 
+    
+    // Fallback: Intentar leer x-token si Authorization falló
+    if (!token) {
+        token = req.headers['x-token'];
     }
 
-    if (!token) {
+    // 3. Validación de Existencia
+    if (!token || token === 'undefined' || token === 'null') {
+        console.log("ERROR: No se encontró token válido en la extracción.");
         return res.status(401).json({
-            message: 'Acceso denegado. Se requiere header Authorization.'
+            message: 'Acceso denegado. Token no proporcionado o formato incorrecto.'
         });
     }
 
     try {
-        // Esto verifica la firma RS256 usando las llaves de Google automáticamente.
+        // 4. Verificación con Firebase Admin (Clave Pública de Google)
+        // ESTO ES CRÍTICO: Usamos admin.auth(), NO jwt.verify()
         const decodedToken = await admin.auth().verifyIdToken(token);
         
-        // Inyectar datos en el request
+        // 5. Inyectar datos al request
         req.uid = decodedToken.uid;
         req.email = decodedToken.email;
         
-        // NOTA: Los tokens de Firebase NO traen 'rol' ni 'username' por defecto,        
         next();
 
     } catch (error) {
-        console.error("Error al validar token Firebase:", error.code, error.message);
+        console.error("ERROR VERIFICACIÓN FIREBASE:", error.code, error.message);
+        
+        // Manejo específico de errores
+        if (error.code === 'auth/id-token-expired') {
+            return res.status(401).json({ message: 'El token ha expirado. Por favor, inicie sesión nuevamente.' });
+        }
+        
         return res.status(401).json({
-            message: 'Token no válido o expirado.'
+            message: 'Token no válido.'
         });
     }
 };

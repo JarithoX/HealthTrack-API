@@ -98,90 +98,55 @@ async function listarDefiniciones(req, res) {
 /**
  * 3. POST /api/habito-registro
  * Registra una entrada diaria de un hábito.
- * Recibe: { id_habito_def, valor_registrado, comentario, fecha, id_usuario (username) }
- */
-/**
- * 3. POST /api/habito-registro
- * Registra una entrada diaria de un hábito.
- * Recibe: { id_habito_def, valor_registrado, comentario, fecha, id_usuario (username) }
  */
 async function registrarHabito(req, res) {
-    const { authData } = req;
-    if (!authData || !authData.id_usuario) {
-        return res.status(401).json({ error: 'Token inválido o expirado.' });
-    }
-
-    // 1. Obtener datos y validar campos esenciales
-    let { 
-        id_habito_def, 
-        valor_registrado, 
-        comentario, 
-        fecha, 
-        id_usuario 
-    } = req.body;
-
-    // LÍNEA DE DEBUG para ver qué ID POSTEÓ EL HTML
-    console.log(`DEBUG: ID recibido en el POST desde Django: "${id_habito_def}"`);
-    
-    // VALIDACIÓN CRÍTICA: Si el ID o la fecha faltan, es un error del frontend (HTML)
-    if (!id_habito_def || !fecha || !id_usuario) {
-        return res.status(400).json({ error: 'Faltan campos esenciales: id_habito_def, fecha, o id_usuario. (El formulario HTML no envió el ID o la fecha).' });
-    }
-
-    let definicion;
-    let tipo_medicion;
-
-    // 2. OBTENER Y VERIFICAR DEFINICIÓN en Firestore
     try {
-        const defSnapshot = await db.collection(DEF_COLL).doc(id_habito_def).get();
+        // 1. Obtener datos del body
+        const { 
+            id_habito_def, 
+            valor_registrado, 
+            comentario, 
+            fecha, 
+            id_usuario 
+        } = req.body;
 
-        if (!defSnapshot.exists) { 
-            console.error(`ERROR 404: Definición no encontrada para ID: ${id_habito_def}`);
-            return res.status(404).json({ error: 'Definición de hábito no encontrada.' });
+        // 2. Validación crítica
+        if (!id_habito_def) {
+            console.log("Error: Falta id_habito_def");
+            return res.status(400).json({ error: 'Falta el ID del hábito.' });
         }
 
-        // Si el documento existe, extraemos los datos.
-        definicion = defSnapshot.data();
-        tipo_medicion = definicion.tipo_medicion; 
-
-    } catch (err) {
-        console.error('ERROR 500: Fallo en Firestore al buscar definición:', err);
-        return res.status(500).json({ error: 'Error interno del servidor al buscar el tipo de hábito.' });
-    }
-
-    // 3. Procesamiento del valor
-    if (tipo_medicion === 'Binario') {
-        // Si el checkbox se marca, Django envía un valor (e.g., '1'). 
-        // Si no se marca, no envía el campo. 
-        // Por lo tanto, si no es 'undefined' o 'null', lo consideramos 1 (completado).
-        valor_registrado = (valor_registrado !== undefined && valor_registrado !== null && valor_registrado !== '0' && valor_registrado !== '') ? 1 : 0;
-    } else {
-        valor_registrado = Number(valor_registrado);
-        if (isNaN(valor_registrado)) {
-             return res.status(400).json({ error: 'El valor registrado no es un número válido para este tipo de hábito.' });
+        // 3. Limpieza del valor
+        // Si es checkbox desmarcado puede venir null/undefined -> lo pasamos a 0 o 1
+        let valorFinal = valor_registrado;
+        if (valorFinal === undefined || valorFinal === null || valorFinal === '') {
+            valorFinal = 0; // Valor por defecto
         }
-    }
 
-    // 4. Crear el objeto de registro y guardar
-    const registroData = {
-        id_habito_def: id_habito_def,
-        id_usuario: id_usuario,
-        fecha: fecha,
-        valor_registrado: valor_registrado,
-        comentario: comentario || null,
-        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-    };
+        // 4. Crear el objeto de registro
+        const registroData = {
+            id_habito_def: id_habito_def,
+            id_usuario: id_usuario,         // Username visual (ej: "prueba3")
+            uid_firebase: req.uid,          // ID Técnico Seguro (ej: "nlC6...")
+            fecha: fecha || new Date().toISOString().split('T')[0],
+            valor_registrado: valorFinal,
+            comentario: comentario || '',
+            timestamp: new Date().toISOString()
+        };
 
-    try {
-        const docRef = await db.collection(REG_COLL).add(registroData);
+        // 5. Guardar en Firestore
+        // Asegúrate de que el nombre de la colección coincide con tu BD ('habito_registro')
+        const docRef = await db.collection('habito_registro').add(registroData);
 
         return res.status(201).json({ 
+            success: true,
             message: 'Registro guardado con éxito.', 
             id: docRef.id 
         });
+
     } catch (dbErr) {
-        console.error('Error al guardar registro en Firestore:', dbErr);
-        return res.status(500).json({ error: 'Error al guardar el registro en la base de datos.' });
+        console.error('❌ Error CRÍTICO al guardar registro:', dbErr);
+        return res.status(500).json({ error: 'Error interno al guardar en base de datos.' });
     }
 }
 

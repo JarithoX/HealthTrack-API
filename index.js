@@ -5,6 +5,7 @@ require('dotenv').config();
 const usuariosRoutes = require('./routes/usuarios.routes');
 const habitosRoutes = require('./routes/habitos.routes');
 const authRoutes = require('./routes/auth.routes');
+const habitosRecomendadosRoutes = require('./routes/habitos_recomendados.routes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRoutes);
 app.use('/api', habitosRoutes);
+app.use('/api/habitos-recomendados', habitosRecomendadosRoutes);
 
 // ping opcional
 app.get('/', (_req, res) => res.status(200).send('API HealthTrack funcionando'));
