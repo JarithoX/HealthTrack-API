@@ -32,7 +32,7 @@ app.use((req, res, next) => {
 });
 
 // Iniciar el servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server corriendo en http://localhost:${PORT}`);
     console.log('Rutas disponibles:');
     console.log(`- http://localhost:${PORT}/api/auth`);

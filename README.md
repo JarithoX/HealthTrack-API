@@ -2,6 +2,12 @@
 
 Esta es la API RESTful central del proyecto HealthTrack, construida con Node.js y Express, y utilizando Firebase Firestore como base de datos.
 
+## 🛠️ Tecnologías
+* **Runtime:** Node.js v18+
+* **Base de Datos:** Firebase Firestore (NoSQL)
+* **Autenticación:** Firebase Admin SDK
+* **Despliegue:** Google Cloud Run (Dockerizado)
+
 REPOSITORIO:
 ```powershell
 https://github.com/JarithoX/HealthTrack-API.git
@@ -29,7 +35,27 @@ npm install
 node index.js
 ```
 
-5. Crear .env y pegar lo siguiente
-```powershell
-JWT_SECRET=Yl3WqZzS/Jp5Vb8tH4xG2kDd9fR1aC7mE0oIuF6gT3hU2rN1qY0xC9vA8lB7kZ6yL5pX4rQ3oW2tV1sR0e
+## 💻 Desarrollo Local (Cómo ejecutar en tu PC)
+
+### 1. Prerrequisitos
+* Tener Node.js instalado.
+* Tener el archivo `.env` en la raíz de esta carpeta.
+
+### 2. Configuración de Variables de Entorno (`.env`)
+Crea un archivo `.env` con las siguientes claves:
+```env
+PORT=3000
+JWT_SECRET=tu_clave_secreta_local
+FIREBASE_API_KEY=AIzaSy...
+FIREBASE_PROJECT_ID=health-track-165f2
+
+# Asegúrate de tener el archivo config/serviceAccountKey.json si usas credenciales de servicio
 ```
+## La Arquitectura de Despliegue
+Firebase Hosting es el recepcionista:
+
+1. Usuario entra a: tu-app.web.app (Ruta /) -> Firebase deriva a Cloud Run (Django Container).
+
+2. Usuario pide datos a: /api/... -> Firebase deriva a Cloud Run (Node.js Container).
+
+Ambos servicios corren en la infraestructura de Google (escalables y seguros), y el usuario lo ve todo bajo un solo dominio HTTPS.

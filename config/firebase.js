@@ -1,30 +1,35 @@
-// Tu archivo firebase.js (CORREGIDO)
-
-// Importa el SDK de Firebase Admin
 const admin = require('firebase-admin');
 
 function initFirebase() {
-  // En producción (Cloud Run) usaremos credenciales por defecto.
-  // En local, si existe serviceAccountKey.json, usamos esa.
-  try {
-      // ⚠️ VERIFICA LA RUTA: Si este archivo está en /config, debe ser '../serviceAccountKey.json'
-      const serviceAccount = require('./serviceAccountKey.json'); 
-      
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      console.log('🔥 Firebase Admin inicializado (LOCAL con key JSON)');
-  } catch (e) {
-      console.error("Error al cargar serviceAccountKey.json. Usando credenciales por defecto:", e.message);
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-      console.log('🔥 Firebase Admin inicializado (CLOUD/DESARROLLO con credencial por defecto)');
-  }
-  return admin.firestore();
+  try {
+    // 1. Intento LOCAL: Busca el archivo de credenciales
+    // (Este archivo solo existe en tu PC, no se sube a Docker)
+    const serviceAccount = require('./serviceAccountKey.json');
+    
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    
+    console.log('🔥 Firebase Admin: Inicializado en modo LOCAL (serviceAccountKey)');
+
+  } catch (e) {
+    // 2. Fallback CLOUD: Si no encuentra el archivo, asume que estamos en Cloud Run.
+    // Inicializamos SIN credenciales explícitas para usar los roles IAM (ADC).
+    // Es vital que FIREBASE_PROJECT_ID esté en las variables de entorno.
+    
+    if (!admin.apps.length) { // Evita reinicializar si ya existe
+        admin.initializeApp({
+            projectId: process.env.FIREBASE_PROJECT_ID, 
+        });
+    }
+    
+    console.log('☁️ Firebase Admin: Inicializado en modo CLOUD (IAM / ADC)');
+  }
+
+  return admin.firestore();
 }
 
 const db = initFirebase();
 
-// 🚀 LA CORRECCIÓN CLAVE: Exportar ambos 'db' y 'admin'
+// Exportamos tanto la instancia de DB como el objeto admin completo
 module.exports = { db, admin };
