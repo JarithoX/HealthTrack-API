@@ -5,7 +5,7 @@ const router = Router();
 
 // Endpoint: POST /api/habitos-recomendados
 // Body esperado: { "objetivos": ["dormir_mejor", ...] }
-router.post('/', ctrl.getRecomendaciones);
+router.post('/', ctrl.getHabitosRecomendados);
 
 
 module.exports = router;

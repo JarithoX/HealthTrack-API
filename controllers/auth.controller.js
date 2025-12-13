@@ -35,6 +35,7 @@ const toPublic = (doc) => {
     return { id: doc.id, ...data };
 };
 
+
 async function ensureUniqueEmail(email, ignoreId = null) {
     if (!email) return;
     const snap = await db.collection(COLL).where('email', '==', email).limit(1).get();
@@ -269,8 +270,57 @@ async function verificarTokenUsuario(req, res) {
     }
 }
 
+
+
+const cambiarContrasena = async (req, res) => {
+    try {
+        const { uid, currentPassword, newPassword } = req.body;
+        if (!uid || !currentPassword || !newPassword) {
+            return res.status(400).json({
+                error: 'Faltan datos requeridos (uid, currentPassword, newPassword).'
+            });
+        }
+
+        const user = await admin.auth().getUser(uid);
+        const email = user.email;
+
+        const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY; // ¡Asegúrate de tener esto en .env!
+
+        if (!FIREBASE_API_KEY) {
+            console.error("FATAL: FIREBASE_API_KEY no está definida en .env");
+            return res.status(500).json({ error: 'Error de configuración del servidor.' });
+        }
+
+        // URL de Google Identity Toolkit para verificar password
+        const verifyUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`;
+
+        try {
+            // Usamos axios en lugar de fetch para consistencia con el resto del archivo
+            await axios.post(verifyUrl, {
+                email: email,
+                password: currentPassword,
+                returnSecureToken: true
+            });
+        } catch (verifyError) {
+            console.error("Error verificando password:", verifyError.response?.data || verifyError.message);
+            return res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+        }
+
+        await admin.auth().updateUser(uid, {
+            password: newPassword
+        });
+        return res.status(200).json({ message: 'Contraseña actualizada con éxito.' });
+    } catch (error) {
+        console.error("Error cambiarContrasena:", error);
+        return res.status(500).json({
+            error: 'Error interno del servidor al cambiar contraseña.'
+        });
+    }
+};
+
 module.exports = {
     createUsuario,
     loginUsuario,
     verificarTokenUsuario,
+    cambiarContrasena
 };

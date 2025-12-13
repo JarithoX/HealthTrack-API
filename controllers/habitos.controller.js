@@ -35,23 +35,23 @@ const REG_COLL = 'habito_registro';
  */
 async function crearDefinicion(req, res){
     try {
-        const { nombre, tipo_medicion, meta, frecuencia, id_usuario } = req.body;
-
+        // CORRECCIÓN: Agregamos assignedBy y descripcion aquí
+        const { nombre, tipo_medicion, meta, frecuencia, id_usuario, assignedBy, descripcion } = req.body;
         if (!nombre || !tipo_medicion || !meta || !id_usuario) {
             return res.status(400).json({ error: 'Faltan campos obligatorios: nombre, tipo_medicion, meta, id_usuario.' });
         }
-
         const nuevaDefinicion = {
             nombre,
             tipo_medicion,
             meta,
             frecuencia: frecuencia || 'Diaria',
-            id_usuario, // Este es el username
+            id_usuario, 
+            // CORRECCIÓN: Los guardamos en el objeto final
+            assignedBy: assignedBy || null,
+            descripcion: descripcion || ''
         };
-
         const docRef = await db.collection(DEF_COLL).add(nuevaDefinicion);
         return res.status(201).json({ id: docRef.id, message: 'Definición de hábito creada con éxito.' });
-
     } catch (err) {
         console.error('crearDefinicion:', err);
         return res.status(500).json({ error: 'Error al crear la definición del hábito.' });
